@@ -11,12 +11,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sylvaincodes/agentic-ai-templates-registry.git"
+    "url": "git+https://github.com/sylvaincodes/agentic-ai-templates.git"
   },
   "bugs": {
-    "url": "https://github.com/sylvaincodes/agentic-ai-templates-registry/issues"
+    "url": "https://github.com/sylvaincodes/agentic-ai-templates/issues"
   },
-  "homepage": "https://github.com/sylvaincodes/agentic-ai-templates-registry#readme",
+  "homepage": "https://github.com/sylvaincodes/agentic-ai-templates#readme",
   "engines": {
     "node": ">=20.0.0"
   },
