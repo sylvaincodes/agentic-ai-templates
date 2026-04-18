@@ -17,7 +17,10 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: "npm" # Speeds up future runs by caching node_modules
 
-      - run: npm ci
+      - name: Clear npm cache
+        run: npm cache clean --force
+
+      - run: npm install
       - run: npm run build
 
       # This command will now work WITHOUT a secret token!
