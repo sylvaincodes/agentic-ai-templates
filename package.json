@@ -2,7 +2,7 @@
   "name": "agentic-ai-templates",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/bin/cli.js"
+  "main": "dist/bin/cli.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
@@ -34,6 +34,6 @@
     "dist"
   ],
   "engines": {
-  "node": ">=18"
-}
+    "node": ">=18"
+  }
 }
