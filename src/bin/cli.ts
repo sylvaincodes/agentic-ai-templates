@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import chalk from "chalk";
 import { Command } from "commander";
+import ora from "ora";
 
 import { ClaudeCodeAdapter } from "../adapters/claudeCode.adapter.js";
 import { getManifest, updateManifest } from "../core/manifest.js";
@@ -10,70 +11,94 @@ const program = new Command();
 
 program
   .name("agentic-ai-templates")
-  .description("Install AI capabilities into your coding agents")
-  .version("0.1.0");
+  .description(
+    "Install high-performance AI capabilities into your coding agents.",
+  )
+  .version("1.0.0");
 
 program
   .command("install")
-  .description("Install a skill or command")
-  .option("--claude-code", "Target Claude Code")
-  .option("--skill <id>", "Skill ID to install")
+  .description("Install a specific intelligence module from the registry")
+  .option("--claude-code", "Target the Claude Code agent environment")
+  .requiredOption(
+    "--skill <id>",
+    "The unique ID of the skill to install (e.g., product/idea-to-roadmap)",
+  )
   .action(async (options) => {
-    try {
-      // ✅ OPTION A FIX: correct access to kebab-case flag
-      const targetClaude = options.claudeCode === true;
+    const spinner = ora();
 
-      if (!targetClaude) {
+    try {
+      // 1. Validation Logic
+      const isClaude = !!options.claudeCode;
+
+      if (!isClaude) {
         console.error(
-          chalk.red("❌ Error: You must specify an agent (use --claude-code)"),
+          chalk.red(
+            "\n❌ Error: No target agent specified. Use --claude-code.",
+          ),
         );
         process.exit(1);
       }
 
-      if (options.skill) {
-        const skillId = options.skill;
+      const skillId = options.skill;
+      spinner.start(
+        chalk.blue(`Connecting to registry for ${chalk.bold(skillId)}...`),
+      );
 
-        console.log(chalk.blue(`⏳ Fetching skill: ${skillId}...`));
+      // 2. Fetch with Timeout/Retry (handled in registryClient)
+      const skill = await fetchSkill(skillId);
+      spinner.text = chalk.blue(
+        `Configuring adapter for ${chalk.bold(skill.name)}...`,
+      );
 
-        // 🔥 Debug-safe fetch
-        const skill = await fetchSkill(skillId);
+      // 3. Adapter Execution
+      const adapter = new ClaudeCodeAdapter();
+      await adapter.installSkill(skill);
 
-        // 1. Install via adapter
-        const adapter = new ClaudeCodeAdapter();
-        await adapter.installSkill(skill);
+      // 4. Manifest Persistence
+      spinner.text = chalk.blue(`Updating project manifest...`);
+      const manifest = await getManifest();
+      const skills = manifest?.skills || [];
 
-        // 2. Update manifest
-        const manifest = await getManifest();
-        const skills = manifest?.skills || [];
+      const existingIndex = skills.findIndex((s) => s.id === skill.id);
+      const skillEntry = {
+        id: skill.id,
+        version: skill.version,
+        installedAt: new Date().toISOString(),
+      };
 
-        const exists = skills.find((s) => s.id === skill.id);
-
-        if (!exists) {
-          skills.push({
-            id: skill.id,
-            version: skill.version,
-            installedAt: new Date().toISOString(),
-          });
-        }
-
-        await updateManifest({ skills });
-
-        console.log(
-          chalk.green(`\n✔ Skill installed: ${chalk.bold(skill.name)}`),
-        );
-
-        console.log(chalk.gray(`  Target: Claude Code`));
-        console.log(
-          chalk.gray(
-            `  Files updated: .claude/instructions.md, .agentic/manifest.json`,
-          ),
-        );
+      if (existingIndex > -1) {
+        skills[existingIndex] = skillEntry;
       } else {
-        console.error(chalk.red("❌ Error: --skill <id> is required"));
+        skills.push(skillEntry);
       }
+
+      await updateManifest({ skills });
+
+      spinner.succeed(
+        chalk.green(`Successfully installed: ${chalk.bold(skill.name)}`),
+      );
+
+      // Calculate the actual path based on your Adapter logic
+      const relativeSkillPath = `.claude/skills/${skill.id}/SKILL.md`;
+
+      console.log(chalk.dim(`\n--- Deployment Summary ---`));
+      console.log(chalk.gray(`• Agent:  Claude Code`));
+      console.log(chalk.gray(`• Status: ${chalk.green("Active")}`));
+      console.log(chalk.gray(`• Path:   ${chalk.cyan(relativeSkillPath)}`));
+
+      console.log(
+        chalk.yellow(
+          `\n💡 Tip: Tell Claude to "Use the skills in .claude/skills" to activate this persona.`,
+        ),
+      );
     } catch (error: any) {
-      console.error(chalk.red(`\n❌ Installation failed: ${error.message}`));
+      spinner.fail(chalk.red(`Installation Failed`));
+      console.error(chalk.yellow(`\nReason: ${error.message}`));
+
+      // Production Security: Log to a file if needed, but don't leak stack traces to users
+      process.exit(1);
     }
   });
 
-program.parse();
+program.parse(process.argv);
