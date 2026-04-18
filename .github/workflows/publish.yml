@@ -1,28 +1,27 @@
 name: Publish to npm
+
 on:
   workflow_dispatch:
   release:
-    types: [created] # Runs when you create a GitHub Release
+    types: [created]
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # Mandatory for Trusted Publishing
+      id-token: write
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: "25"
+          node-version: "20"
           registry-url: "https://registry.npmjs.org"
-          cache: "npm" # Speeds up future runs by caching node_modules
+          cache: "npm"
 
-      - name: Clear npm cache
-        run: npm cache clean --force
-
-      - run: npm install
+      - run: npm ci
       - run: npm run build
 
-      # This command will now work WITHOUT a secret token!
       - run: npm publish --provenance --access public
