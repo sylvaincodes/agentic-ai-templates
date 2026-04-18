@@ -1,6 +1,6 @@
 {
   "name": "agentic-ai-templates",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "The Package Manager for AI Agent Intelligence. Install skills and commands into your coding agents in seconds.",
   "type": "module",
   "author": "sylvaincodes",

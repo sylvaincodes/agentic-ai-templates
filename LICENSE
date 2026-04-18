@@ -1,5 +1,23 @@
 Copyright (c) 2026 sylvaincodes. All rights reserved.
 
-This software and associated documentation files are proprietary to sylvaincodes.
-Unauthorized copying, modification, distribution, or reproduction of this
-software, via any medium, is strictly prohibited.
+Proprietary Software License
+
+1. Grant of License:
+   This software is provided for use strictly through the official distribution
+   channels (npm, npx). Unauthorized copying, modification, distribution, or
+   reproduction of this software, via any medium, is strictly prohibited.
+
+2. Ownership:
+   sylvaincodes retains all right, title, and interest in and to the software,
+   including all intellectual property rights.
+
+3. Disclaimer of Warranty:
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+4. Limitation of Liability:
+   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+   USE OR OTHER DEALINGS IN THE SOFTWARE.
