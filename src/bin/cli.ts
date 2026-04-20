@@ -5,7 +5,7 @@ import ora from "ora";
 
 import { ClaudeCodeAdapter } from "../adapters/claudeCode.adapter.js";
 import { getManifest, updateManifest } from "../core/manifest.js";
-import { fetchSkill } from "../core/registryClient.js";
+import { fetchGoal, fetchSkill } from "../core/registryClient.js";
 
 const program = new Command();
 
@@ -18,11 +18,14 @@ program
 
 program
   .command("install")
-  .description("Install a specific intelligence module from the registry")
+  .description(
+    "Install a specific intelligence module or a complete goal from the registry",
+  )
   .option("--claude-code", "Target the Claude Code agent environment")
-  .requiredOption(
-    "--skill <id>",
-    "The unique ID of the skill to install (e.g., product/idea-to-roadmap)",
+  .option("--skill <id>", "The unique ID of the skill to install")
+  .option(
+    "--goal <id>",
+    "The unique ID of the goal to install (includes multiple skills + command)",
   )
   .action(async (options) => {
     const spinner = ora();
@@ -30,7 +33,6 @@ program
     try {
       // 1. Validation Logic
       const isClaude = !!options.claudeCode;
-
       if (!isClaude) {
         console.error(
           chalk.red(
@@ -40,63 +42,121 @@ program
         process.exit(1);
       }
 
-      const skillId = options.skill;
-      spinner.start(
-        chalk.blue(`Connecting to registry for ${chalk.bold(skillId)}...`),
-      );
-
-      // 2. Fetch with Timeout/Retry (handled in registryClient)
-      const skill = await fetchSkill(skillId);
-      spinner.text = chalk.blue(
-        `Configuring adapter for ${chalk.bold(skill.name)}...`,
-      );
-
-      // 3. Adapter Execution
-      const adapter = new ClaudeCodeAdapter();
-      await adapter.installSkill(skill);
-
-      // 4. Manifest Persistence
-      spinner.text = chalk.blue(`Updating project manifest...`);
-      const manifest = await getManifest();
-      const skills = manifest?.skills || [];
-
-      const existingIndex = skills.findIndex((s) => s.id === skill.id);
-      const skillEntry = {
-        id: skill.id,
-        version: skill.version,
-        installedAt: new Date().toISOString(),
-      };
-
-      if (existingIndex > -1) {
-        skills[existingIndex] = skillEntry;
-      } else {
-        skills.push(skillEntry);
+      if (!options.skill && !options.goal) {
+        console.error(
+          chalk.red(
+            "\n❌ Error: You must specify either a --skill or a --goal to install.",
+          ),
+        );
+        process.exit(1);
       }
 
-      await updateManifest({ skills });
+      const adapter = new ClaudeCodeAdapter();
+      const manifest = await getManifest();
+      const skillsInManifest = manifest?.skills || [];
 
-      spinner.succeed(
-        chalk.green(`Successfully installed: ${chalk.bold(skill.name)}`),
-      );
+      // --- HANDLE GOAL INSTALLATION ---
+      if (options.goal) {
+        spinner.start(
+          chalk.blue(`Fetching Goal: ${chalk.bold(options.goal)}...`),
+        );
+        const goal = await fetchGoal(options.goal);
 
-      // Calculate the actual path based on your Adapter logic
-      const relativeSkillPath = `.claude/skills/${skill.id}/SKILL.md`;
+        spinner.text = chalk.blue(
+          `Installing skills for goal: ${goal.title}...`,
+        );
 
-      console.log(chalk.dim(`\n--- Deployment Summary ---`));
-      console.log(chalk.gray(`• Agent:  Claude Code`));
-      console.log(chalk.gray(`• Status: ${chalk.green("Active")}`));
-      console.log(chalk.gray(`• Path:   ${chalk.cyan(relativeSkillPath)}`));
+        // 1. Install all skills (Knowledge base)
+        for (const skill of goal.skills) {
+          await adapter.installSkill(skill);
 
-      console.log(
-        chalk.yellow(
-          `\n💡 Tip: Tell Claude to "Use the skills in .claude/skills" to activate this persona.`,
-        ),
-      );
+          const existingIndex = skillsInManifest.findIndex(
+            (s) => s.id === skill.id,
+          );
+          const entry = {
+            id: skill.id,
+            version: skill.version,
+            installedAt: new Date().toISOString(),
+          };
+          if (existingIndex > -1) skillsInManifest[existingIndex] = entry;
+          else skillsInManifest.push(entry);
+        }
+
+        // ✅ 2. NEW: Provision Agents (The Team)
+        if (goal.agents) {
+          spinner.text = chalk.blue(`Provisioning AI Agent team...`);
+          for (const [name, agentConfig] of Object.entries(goal.agents)) {
+            await adapter.installAgent(name, agentConfig);
+          }
+        }
+
+        // 3. Install the Goal Command (Orchestrator)
+        if (goal.commands) {
+          spinner.text = chalk.blue(`Registering orchestration commands...`);
+          const commandToInstall = Object.values(goal.commands)[0];
+          await adapter.installCommand(commandToInstall!, goal.id);
+        }
+
+        await updateManifest({ skills: skillsInManifest });
+        spinner.succeed(
+          chalk.green(`Goal Successfully Installed: ${chalk.bold(goal.title)}`),
+        );
+
+        // --- ENHANCED SUMMARY ---
+        const trigger = Object.values(goal.commands!)[0]?.trigger || "/execute";
+        console.log(chalk.dim(`\n--- Goal Summary ---`));
+        console.log(chalk.gray(`• Status:   ${chalk.green("Active")}`));
+        console.log(
+          chalk.gray(`• Skills:   ${goal.skills.length} modules loaded`),
+        );
+
+        if (goal.agents) {
+          const agentNames = Object.keys(goal.agents)
+            .map((name) => `@${name}`)
+            .join(", ");
+          console.log(chalk.gray(`• Team:     ${chalk.magenta(agentNames)}`));
+        }
+
+        console.log(chalk.gray(`• Command:  ${chalk.cyan(trigger)}`));
+        console.log(
+          chalk.yellow(
+            `\n🚀 Run ${chalk.bold(trigger)} in Claude Code to start the guided workflow.`,
+          ),
+        );
+      }
+
+      // --- HANDLE SINGLE SKILL INSTALLATION ---
+      else if (options.skill) {
+        spinner.start(
+          chalk.blue(`Fetching Skill: ${chalk.bold(options.skill)}...`),
+        );
+        const skill = await fetchSkill(options.skill);
+
+        await adapter.installSkill(skill);
+
+        const existingIndex = skillsInManifest.findIndex(
+          (s) => s.id === skill.id,
+        );
+        const skillEntry = {
+          id: skill.id,
+          version: skill.version,
+          installedAt: new Date().toISOString(),
+        };
+        if (existingIndex > -1) skillsInManifest[existingIndex] = skillEntry;
+        else skillsInManifest.push(skillEntry);
+
+        await updateManifest({ skills: skillsInManifest });
+
+        spinner.succeed(
+          chalk.green(
+            `Skill Successfully Installed: ${chalk.bold(skill.name)}`,
+          ),
+        );
+        console.log(chalk.gray(`• Path: .claude/skills/${skill.id}/SKILL.md`));
+      }
     } catch (error: any) {
       spinner.fail(chalk.red(`Installation Failed`));
       console.error(chalk.yellow(`\nReason: ${error.message}`));
-
-      // Production Security: Log to a file if needed, but don't leak stack traces to users
       process.exit(1);
     }
   });
