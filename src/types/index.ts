@@ -61,9 +61,11 @@ export interface AgentAdapter {
  * AgentSchema: Defines a specific persona within a Goal.
  */
 export const AgentSchema = z.object({
+  id: z.string().optional(),
   role: z.string(), // e.g., "Lead Strategist"
   skill_id: z.string(), // e.g., "product/idea-to-roadmap"
   instruction: z.string(), // Specific behavior for this agent
+  version: z.string().optional().default("1.0.0"),
 });
 
 export type Agent = z.infer<typeof AgentSchema>;

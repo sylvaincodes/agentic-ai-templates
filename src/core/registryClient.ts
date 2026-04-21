@@ -1,10 +1,12 @@
 import axios from "axios";
 import chalk from "chalk";
 import {
-  SkillSchema,
+  AgentSchema,
   GoalSchema,
-  type Skill,
+  SkillSchema,
+  type Agent,
   type Goal,
+  type Skill,
 } from "../types/index.js";
 
 const GITHUB_OWNER = "sylvaincodes";
@@ -103,5 +105,36 @@ function handleAxiosError(error: any, id: string, type: string) {
   }
   if (error.code === "ECONNABORTED") {
     throw new Error(`Registry timeout: GitHub took too long to respond.`);
+  }
+}
+
+/**
+ * Fetches and validates a standalone Agent persona.
+ */
+export async function fetchAgent(id: string): Promise<Agent> {
+  // Clean the ID (remove leading/trailing slashes)
+  const safeId = id.replace(/^\/+|\/+$/g, "");
+  const url = `${BASE_RAW_URL}/agents/${safeId}/agent.json`;
+
+  if (process.env.DEBUG)
+    console.log(chalk.dim(`   [Debug] Requesting Agent: ${url}`));
+
+  try {
+    const response = await axios.get(url, axiosConfig);
+
+    // Validate against AgentSchema
+    const result = AgentSchema.safeParse(response.data);
+
+    if (!result.success) {
+      throw new Error(
+        `Agent Schema Validation Failed: ${formatZodError(result.error)}`,
+      );
+    }
+
+    return result.data;
+  } catch (error: any) {
+    // Reuse your existing error handler
+    handleAxiosError(error, id, "Agent");
+    throw error;
   }
 }

@@ -93,7 +93,7 @@ ${command.checklist?.map((item) => `- [ ] ${item}`).join("\n") ?? "- [ ] Verify 
   }
 
   // Implementation for Agents
-  async installAgent(name: string, agent: Agent): Promise<void> {
+  async installAgent(name: string | undefined, agent: Agent): Promise<void> {
     const agentDir = path.join(this.configDir, "agents");
     await fs.ensureDir(agentDir);
 
@@ -106,6 +106,8 @@ ${command.checklist?.map((item) => `- [ ] ${item}`).join("\n") ?? "- [ ] Verify 
 ---
 role: ${agent.role}
 assigned_skill: ${skillPath}
+version: ${agent.version}
+type: agent
 ---
 
 # 👥 Agent Persona: ${agent.role} (@${name})
@@ -126,7 +128,8 @@ This agent is powered by the expert rules defined in: \`${skillPath}\`.
 2. **Handoffs**: Save progress and structured data to the \`output/\` directory for other team members.
 3. **Skill Adherence**: Strict adherence to the linked skill's rules is mandatory.
 
-> Provisioned via Agentic AI Marketplace.
+> [!NOTE]
+> Provisioned via Agentic AI Marketplace (v${agent.version}).
 `.trim();
 
     await fs.writeFile(agentFilePath, agentMarkdown, "utf-8");

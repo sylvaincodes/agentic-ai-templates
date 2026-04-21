@@ -5,7 +5,7 @@ import ora from "ora";
 
 import { ClaudeCodeAdapter } from "../adapters/claudeCode.adapter.js";
 import { getManifest, updateManifest } from "../core/manifest.js";
-import { fetchGoal, fetchSkill } from "../core/registryClient.js";
+import { fetchAgent, fetchGoal, fetchSkill } from "../core/registryClient.js";
 
 const program = new Command();
 
@@ -23,6 +23,7 @@ program
   )
   .option("--claude-code", "Target the Claude Code agent environment")
   .option("--skill <id>", "The unique ID of the skill to install")
+  .option("--agent <id>", "The unique ID of the agent to install")
   .option(
     "--goal <id>",
     "The unique ID of the goal to install (includes multiple skills + command)",
@@ -42,10 +43,10 @@ program
         process.exit(1);
       }
 
-      if (!options.skill && !options.goal) {
+      if (!options.skill && !options.goal && !options.agent) {
         console.error(
           chalk.red(
-            "\n❌ Error: You must specify either a --skill or a --goal to install.",
+            "\n❌ Error: You must specify either a --skill or a --goal or a --agent to install.",
           ),
         );
         process.exit(1);
@@ -121,6 +122,63 @@ program
         console.log(
           chalk.yellow(
             `\n🚀 Run ${chalk.bold(trigger)} in Claude Code to start the guided workflow.`,
+          ),
+        );
+      }
+
+      // --- HANDLE AGENT INSTALLATION ---
+      else if (options.agent) {
+        spinner.start(
+          chalk.blue(`Fetching Agent: ${chalk.bold(options.agent)}...`),
+        );
+        const agent = await fetchAgent(options.agent);
+
+        // ✅ AUTO-INSTALL REQUIRED SKILL
+        // We check the manifest to see if the agent's brain is already there
+        if (!skillsInManifest.some((s) => s.id === agent.skill_id)) {
+          spinner.text = chalk.blue(
+            `Agent requires skill: ${chalk.bold(agent.skill_id)}. Fetching...`,
+          );
+
+          const requiredSkill = await fetchSkill(agent.skill_id);
+          await adapter.installSkill(requiredSkill);
+
+          // Update manifest list so we don't install it again next time
+          skillsInManifest.push({
+            id: requiredSkill.id,
+            version: requiredSkill.version,
+            installedAt: new Date().toISOString(),
+          });
+
+          // Save the manifest immediately
+          await updateManifest({ skills: skillsInManifest });
+        }
+
+        spinner.text = chalk.blue(
+          `Provisioning @${agent.id} into Claude Code...`,
+        );
+        // Note: adapter.installAgent expects (name, config)
+        await adapter.installAgent(agent.id, {
+          role: agent.role,
+          skill_id: agent.skill_id,
+          instruction: agent.instruction,
+          version: agent.version,
+        });
+
+        spinner.succeed(
+          chalk.green(
+            `Agent Successfully Installed: ${chalk.bold("@" + agent.id)}`,
+          ),
+        );
+        console.log(chalk.gray(`• Role:    ${agent.role}`));
+        console.log(
+          chalk.gray(
+            `• Context:  Linked to skill ${chalk.cyan(agent.skill_id)}`,
+          ),
+        );
+        console.log(
+          chalk.yellow(
+            `\n💡 You can now reference @${agent.id} in your prompts.`,
           ),
         );
       }
